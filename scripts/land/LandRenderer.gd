@@ -1,9 +1,8 @@
-
 extends Reference
 
-# ZekaCity - LandRenderer
+# ZekaCity - LandRenderer.gd
 # Godot 3.6
-# All tile geometry is handled by IsometricGrid.
+# تمام محاسبات مختصات از IsometricGrid انجام می‌شود.
 
 const GRID_SCRIPT = preload(
 	"res://scripts/rendering/IsometricGrid.gd"
@@ -22,6 +21,11 @@ var selected_outline = Color(1.0, 0.85, 0.1)
 func set_grid(grid):
 	if grid != null:
 		isometric_grid = grid
+
+
+func set_tile_size(width, height):
+	isometric_grid.tile_width = float(width)
+	isometric_grid.tile_height = float(height)
 
 
 func get_tile_width():
@@ -51,9 +55,11 @@ func draw_tiles(
 	selected_x,
 	selected_y
 ):
+	if canvas == null or land_system == null:
+		return
+
 	for x in range(grid_size):
 		for y in range(grid_size):
-
 			var grid_pos = Vector2(x, y)
 
 			var tile_center = isometric_grid.grid_to_screen(
