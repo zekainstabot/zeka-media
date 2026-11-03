@@ -3,28 +3,31 @@ extends Reference
 
 # ZekaCity - IsometricGrid
 # Godot 3.6
-# واحد مشترک مختصات برای تمام اجزای نقشه
+# Single source of truth for isometric coordinates.
 
-var tile_width = 64.0
-var tile_height = 32.0
+const DEFAULT_TILE_WIDTH = 64.0
+const DEFAULT_TILE_HEIGHT = 32.0
+
+var tile_width = DEFAULT_TILE_WIDTH
+var tile_height = DEFAULT_TILE_HEIGHT
 
 
-func _init(p_tile_width = 64.0, p_tile_height = 32.0):
+func _init(p_tile_width = DEFAULT_TILE_WIDTH, p_tile_height = DEFAULT_TILE_HEIGHT):
 	tile_width = float(p_tile_width)
 	tile_height = float(p_tile_height)
 
 
-# تبدیل مختصات خانه به مختصات صفحه
-func grid_to_screen(grid_pos, map_center):
-	return map_center + Vector2(
-		(grid_pos.x - grid_pos.y) * tile_width / 2.0,
-		(grid_pos.x + grid_pos.y) * tile_height / 2.0
+# Grid coordinates -> local screen coordinates.
+func grid_to_screen(grid_pos, map_origin):
+	return map_origin + Vector2(
+		(grid_pos.x - grid_pos.y) * tile_width * 0.5,
+		(grid_pos.x + grid_pos.y) * tile_height * 0.5
 	)
 
 
-# تبدیل مختصات صفحه به مختصات اعشاری شبکه
-func screen_to_grid(screen_pos, map_center):
-	var local_pos = screen_pos - map_center
+# Local screen coordinates -> fractional grid coordinates.
+func screen_to_grid(screen_pos, map_origin):
+	var local_pos = screen_pos - map_origin
 
 	return Vector2(
 		local_pos.x / tile_width + local_pos.y / tile_height,
@@ -32,33 +35,57 @@ func screen_to_grid(screen_pos, map_center):
 	)
 
 
-# ساخت لوزی زمین
+# Center of a single ground tile.
+func get_tile_center(grid_pos, map_origin):
+	return grid_to_screen(grid_pos, map_origin)
+
+
+# Four corners of a ground diamond.
 func get_tile_polygon(tile_center):
 	return PoolVector2Array([
-		tile_center + Vector2(0, -tile_height / 2.0),
-		tile_center + Vector2(tile_width / 2.0, 0),
-		tile_center + Vector2(0, tile_height / 2.0),
-		tile_center + Vector2(-tile_width / 2.0, 0)
+		tile_center + Vector2(0, -tile_height * 0.5),
+		tile_center + Vector2(tile_width * 0.5, 0),
+		tile_center + Vector2(0, tile_height * 0.5),
+		tile_center + Vector2(-tile_width * 0.5, 0)
 	])
 
 
-# بررسی قرار داشتن نقطه داخل لوزی
+# Check whether a point belongs to a diamond.
 func is_point_inside_tile(point, tile_center):
 	var local_pos = point - tile_center
 
 	var distance = (
-		abs(local_pos.x) / (tile_width / 2.0)
-		+ abs(local_pos.y) / (tile_height / 2.0)
+		abs(local_pos.x) / (tile_width * 0.5)
+		+ abs(local_pos.y) / (tile_height * 0.5)
 	)
 
 	return distance <= 1.0
 
 
-# پیدا کردن خانه‌ای که نقطه روی آن قرار گرفته است
-func get_tile_at_screen(screen_pos, map_center, grid_size):
+# Center of all tile centers occupied by a rectangular footprint.
+func get_footprint_center(origin, footprint):
+	return origin + Vector2(
+		(footprint.x - 1.0) * 0.5,
+		(footprint.y - 1.0) * 0.5
+	)
+
+
+# Ground anchor for a multi-tile building.
+# No extra vertical offset is applied.
+func get_footprint_ground_position(origin, footprint, map_origin):
+	var center_grid = get_footprint_center(
+		origin,
+		footprint
+	)
+
+	return grid_to_screen(center_grid, map_origin)
+
+
+# Find the exact tile under a screen position.
+func get_tile_at_screen(screen_pos, map_origin, grid_size):
 	var approximate = screen_to_grid(
 		screen_pos,
-		map_center
+		map_origin
 	)
 
 	var base_x = int(round(approximate.x))
@@ -67,7 +94,6 @@ func get_tile_at_screen(screen_pos, map_center, grid_size):
 	var best_tile = Vector2(-1, -1)
 	var best_distance = INF
 
-	# بررسی خانه‌های اطراف برای تشخیص دقیق مرز لوزی‌ها
 	for x in range(base_x - 1, base_x + 2):
 		for y in range(base_y - 1, base_y + 2):
 
@@ -79,14 +105,14 @@ func get_tile_at_screen(screen_pos, map_center, grid_size):
 
 			var grid_pos = Vector2(x, y)
 
-			var tile_center = grid_to_screen(
+			var center = grid_to_screen(
 				grid_pos,
-				map_center
+				map_origin
 			)
 
-			if is_point_inside_tile(screen_pos, tile_center):
+			if is_point_inside_tile(screen_pos, center):
 				var distance = screen_pos.distance_squared_to(
-					tile_center
+					center
 				)
 
 				if distance < best_distance:
@@ -94,27 +120,3 @@ func get_tile_at_screen(screen_pos, map_center, grid_size):
 					best_tile = grid_pos
 
 	return best_tile
-
-
-# مرکز هندسی یک محدوده چندخانه‌ای
-func get_footprint_center(origin, footprint):
-	return origin + Vector2(
-		(footprint.x - 1.0) / 2.0,
-		(footprint.y - 1.0) / 2.0
-	)
-
-
-# موقعیت نقطه اتصال ساختمان به زمین
-func get_footprint_ground_position(origin, footprint, map_center):
-	var center_grid = get_footprint_center(
-		origin,
-		footprint
-	)
-
-	return grid_to_screen(
-		center_grid,
-		map_center
-	) + Vector2(
-		0,
-		(footprint.x + footprint.y) * tile_height / 4.0
-	)
