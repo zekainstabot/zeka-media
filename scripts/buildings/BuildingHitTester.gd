@@ -2,7 +2,7 @@ extends Reference
 
 # ZekaCity - BuildingHitTester
 # Godot 3.6
-# Shared isometric coordinate system.
+# Uses the shared isometric coordinate system.
 
 const ISOMETRIC_GRID_SCRIPT = preload(
 	"res://scripts/rendering/IsometricGrid.gd"
@@ -12,10 +12,7 @@ var isometric_grid = null
 
 
 func _init():
-	isometric_grid = ISOMETRIC_GRID_SCRIPT.new(
-		64.0,
-		32.0
-	)
+	isometric_grid = ISOMETRIC_GRID_SCRIPT.new(64.0, 32.0)
 
 
 func set_grid(grid):
@@ -31,6 +28,15 @@ func find_building_at_position(
 	tile_height,
 	center
 ):
+	if building_footprints == null:
+		return -1
+
+	if isometric_grid == null:
+		isometric_grid = ISOMETRIC_GRID_SCRIPT.new(
+			tile_width,
+			tile_height
+		)
+
 	isometric_grid.tile_width = float(tile_width)
 	isometric_grid.tile_height = float(tile_height)
 
@@ -39,6 +45,9 @@ func find_building_at_position(
 
 	for i in range(placed_buildings.size()):
 		var building = placed_buildings[i]
+
+		if typeof(building) != TYPE_DICTIONARY:
+			continue
 
 		if not building.has("id"):
 			continue
@@ -58,6 +67,7 @@ func find_building_at_position(
 			footprint
 		)
 
+		# Center of the building's ground footprint.
 		var building_pos = isometric_grid.grid_to_screen(
 			visual_grid_pos,
 			center
@@ -131,6 +141,7 @@ func find_building_at_position(
 				visual_grid_pos.x + visual_grid_pos.y
 			)
 
+			# Select the visually frontmost building.
 			if depth >= found_depth:
 				found_depth = depth
 				found_index = i
