@@ -2,13 +2,16 @@ extends Node2D
 
 # ZekaCity - BuildingVisual
 # Godot 3.6
-# Shared isometric positioning and bottom-center sprite anchoring.
+# Uses BuildingSpriteCatalog and shared IsometricGrid.
+# Sprite anchor is calculated from visible PNG pixels.
 
 const ISOMETRIC_GRID_SCRIPT = preload(
 	"res://scripts/rendering/IsometricGrid.gd"
 )
 
-const BUILDING_SCALE_MULTIPLIER = 1.2
+const SPRITE_CATALOG_SCRIPT = preload(
+	"res://scripts/buildings/BuildingSpriteCatalog.gd"
+)
 
 var world = null
 var building_id = ""
@@ -18,12 +21,15 @@ var building_index = -1
 var visual_alpha = 1.0
 
 var building_texture = null
+var sprite_catalog = null
+var isometric_grid = null
 var drawer = null
 
-var isometric_grid = null
-
-var has_visible_bounds = false
 var visible_bounds = Rect2()
+var has_visible_bounds = false
+
+var sprite_anchor = Vector2(0.5, 1.0)
+var sprite_scale = 1.0
 
 
 func setup(
@@ -39,17 +45,23 @@ func setup(
 	building_index = p_building_index
 	visual_alpha = p_visual_alpha
 
-	_initialize_grid()
+	_initialize_systems()
+	_load_sprite_settings()
 	_load_building_texture()
 	_calculate_visible_bounds()
 	_update_building_position()
 
-	modulate = Color(1, 1, 1, visual_alpha)
+	modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		visual_alpha
+	)
 
 	update()
 
 
-func _initialize_grid():
+func _initialize_systems():
 	if world != null and world.isometric_grid != null:
 		isometric_grid = world.isometric_grid
 	else:
@@ -58,25 +70,43 @@ func _initialize_grid():
 			32.0
 		)
 
+	sprite_catalog = SPRITE_CATALOG_SCRIPT.new()
+
+
+func _load_sprite_settings():
+	if sprite_catalog == null:
+		return
+
+	sprite_anchor = sprite_catalog.get_anchor(
+		building_id
+	)
+
+	sprite_scale = sprite_catalog.get_scale_multiplier(
+		building_id
+	)
+
 
 func _load_building_texture():
 	building_texture = null
 	has_visible_bounds = false
 	visible_bounds = Rect2()
 
-	var texture_path = _get_texture_path()
+	if sprite_catalog == null:
+		return
+
+	var texture_path = sprite_catalog.get_texture_path(
+		building_id
+	)
 
 	if texture_path == "":
 		push_warning(
-			"No texture path configured for building: "
-			+ building_id
+			"Sprite not registered: " + building_id
 		)
 		return
 
 	if not ResourceLoader.exists(texture_path):
 		push_warning(
-			"Building texture not found: "
-			+ texture_path
+			"Building image not found: " + texture_path
 		)
 		return
 
@@ -84,53 +114,8 @@ func _load_building_texture():
 
 	if building_texture == null:
 		push_warning(
-			"Could not load building texture: "
-			+ texture_path
+			"Could not load building image: " + texture_path
 		)
-
-
-func _get_texture_path():
-	var texture_paths = {
-		"small_house": "res://BuildingImages/small_house.png",
-		"normal_house": "res://BuildingImages/normal_house.png",
-		"low_apartment": "res://BuildingImages/low_apartment.png",
-		"high_apartment": "res://BuildingImages/high_apartment.png",
-		"residential_tower": "res://BuildingImages/residential_tower.png",
-
-		"grocery_store": "res://BuildingImages/grocery_store.png",
-		"bakery": "res://BuildingImages/bakery.png",
-		"restaurant": "res://BuildingImages/restaurant.png",
-		"office": "res://BuildingImages/office.png",
-		"shopping_mall": "res://BuildingImages/shopping_mall.png",
-		"factory": "res://BuildingImages/factory.png",
-		"mineral_market": "res://BuildingImages/mineral_market.png",
-
-		"water_tower": "res://BuildingImages/water_tower.png",
-		"power_station": "res://BuildingImages/power_station.png",
-		"sewage_plant": "res://BuildingImages/sewage_plant.png",
-		"waste_facility": "res://BuildingImages/waste_facility.png",
-
-		"school": "res://BuildingImages/school.png",
-		"university": "res://BuildingImages/university.png",
-		"clinic": "res://BuildingImages/clinic.png",
-		"hospital": "res://BuildingImages/hospital.png",
-
-		"police_station": "res://BuildingImages/police_station.png",
-		"fire_station": "res://BuildingImages/fire_station.png",
-		"city_hall": "res://BuildingImages/city_hall.png",
-
-		"small_warehouse": "res://BuildingImages/small_warehouse.png",
-		"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
-		"large_warehouse": "res://BuildingImages/large_warehouse.png",
-		"huge_warehouse": "res://BuildingImages/huge_warehouse.png",
-
-		"small_park": "res://BuildingImages/small_park.png",
-		"playground": "res://BuildingImages/playground.png",
-		"sports_center": "res://BuildingImages/sports_center.png",
-		"cultural_center": "res://BuildingImages/cultural_center.png"
-	}
-
-	return texture_paths.get(building_id, "")
 
 
 func _calculate_visible_bounds():
@@ -185,20 +170,18 @@ func _update_building_position():
 	if world == null:
 		return
 
-	var footprint = _get_footprint()
-
 	var map_origin = Vector2(600, 130)
 
 	if world.has_method("get_map_origin"):
 		map_origin = world.get_map_origin()
 
-	var ground_position = isometric_grid.get_footprint_ground_position(
+	var footprint = _get_footprint()
+
+	position = isometric_grid.get_footprint_ground_position(
 		grid_pos,
 		footprint,
 		map_origin
 	)
-
-	position = ground_position
 
 	var depth_grid = grid_pos + Vector2(
 		footprint.x - 1.0,
@@ -219,31 +202,23 @@ func _get_footprint():
 	return Vector2.ONE
 
 
-func _get_target_size():
-	var footprint = _get_footprint()
+func _get_sprite_draw_position():
+	if not has_visible_bounds:
+		return Vector2.ZERO
 
-	var tile_w = 64.0
-	var tile_h = 32.0
-
-	if isometric_grid != null:
-		tile_w = isometric_grid.tile_width
-		tile_h = isometric_grid.tile_height
-
-	return Vector2(
-		max(
-			tile_w,
-			(footprint.x + footprint.y) * tile_w * 0.5
-		),
-		max(
-			tile_h * 2.0,
-			(footprint.x + footprint.y) * tile_h * 1.5
-		)
+	var anchor_pixel = Vector2(
+		visible_bounds.position.x
+			+ visible_bounds.size.x * sprite_anchor.x,
+		visible_bounds.position.y
+			+ visible_bounds.size.y * sprite_anchor.y
 	)
+
+	return -anchor_pixel * sprite_scale
 
 
 func _draw():
 	if building_texture == null:
-		if drawer != null:
+		if drawer != null and drawer.has_method("draw_building"):
 			drawer.draw_building(
 				self,
 				building_id,
@@ -251,40 +226,15 @@ func _draw():
 			)
 		return
 
-	var texture_size = building_texture.get_size()
-
-	if texture_size.x <= 0 or texture_size.y <= 0:
+	if not has_visible_bounds:
 		return
 
-	var target_size = _get_target_size()
-
-	var scale_factor = min(
-		target_size.x / texture_size.x,
-		target_size.y / texture_size.y
-	)
-
-	scale_factor *= BUILDING_SCALE_MULTIPLIER
-
-	var anchor_x = texture_size.x * 0.5
-	var anchor_y = texture_size.y
-
-	if has_visible_bounds:
-		anchor_x = (
-			visible_bounds.position.x
-			+ visible_bounds.size.x * 0.5
-		)
-
-		anchor_y = visible_bounds.end.y
-
-	var draw_position = Vector2(
-		-anchor_x * scale_factor,
-		-anchor_y * scale_factor
-	)
+	var draw_position = _get_sprite_draw_position()
 
 	draw_set_transform(
 		draw_position,
 		0.0,
-		Vector2(scale_factor, scale_factor)
+		Vector2(sprite_scale, sprite_scale)
 	)
 
 	draw_texture(
@@ -298,23 +248,31 @@ func _draw():
 		Vector2.ONE
 	)
 
-	if not world._building_has_road_access(
+	_draw_road_warning()
+
+
+func _draw_road_warning():
+	if world == null:
+		return
+
+	if not world.has_method("_building_has_road_access"):
+		return
+
+	if world._building_has_road_access(
 		building_id,
 		grid_pos
 	):
-		_draw_road_warning(target_size)
+		return
 
-
-func _draw_road_warning(target_size):
 	var marker_position = Vector2(
 		0,
-		-target_size.y * 0.75
+		-48
 	)
 
 	draw_circle(
 		marker_position,
 		11.0,
-		Color(0.9, 0.12, 0.12, 1)
+		Color(0.9, 0.12, 0.12, 1.0)
 	)
 
 	draw_line(
@@ -333,4 +291,13 @@ func _draw_road_warning(target_size):
 
 
 func refresh_road_warning():
+	update()
+
+
+func refresh_visual():
+	_initialize_systems()
+	_load_sprite_settings()
+	_load_building_texture()
+	_calculate_visible_bounds()
+	_update_building_position()
 	update()
