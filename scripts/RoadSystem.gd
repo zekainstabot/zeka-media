@@ -1,6 +1,7 @@
+
 extends Node2D
 
-# ZekaCity - RoadSystem
+# ZekaCity V1 - RoadSystem
 # Godot 3.6
 # Uses the shared IsometricGrid for all road positioning.
 
@@ -14,7 +15,6 @@ const TILE_WIDTH = 64.0
 const TILE_HEIGHT = 32.0
 
 var isometric_grid = null
-
 var map_center = Vector2(600, 130)
 
 var roads = []
@@ -104,6 +104,15 @@ func _normalize_roads():
 	roads = unique_roads
 
 
+func _grid_to_screen(grid_pos):
+	_initialize_grid()
+
+	return isometric_grid.grid_to_screen(
+		grid_pos,
+		map_center
+	)
+
+
 func _draw():
 	if road_texture == null:
 		return
@@ -146,15 +155,6 @@ func _draw():
 			false,
 			tint
 		)
-
-
-func _grid_to_screen(grid_pos):
-	_initialize_grid()
-
-	return isometric_grid.grid_to_screen(
-		grid_pos,
-		map_center
-	)
 
 
 func add_road(grid_pos, direction = 0):
@@ -287,6 +287,7 @@ func set_vertical_offset(x, y):
 	update()
 
 
+# Legacy compatibility
 func set_left_end_shift(value):
 	pass
 
