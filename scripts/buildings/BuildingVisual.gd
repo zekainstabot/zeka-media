@@ -1,9 +1,9 @@
 extends Node2D
 
-# ZekaCity - BuildingVisual
+# ZekaCity V1 - BuildingVisual
 # Godot 3.6
-# Uses BuildingSpriteCatalog and shared IsometricGrid.
-# Sprite anchor is calculated from visible PNG pixels.
+# تمام ساختمان‌ها از یک سیستم مختصات ایزومتریک مشترک استفاده می‌کنند.
+# نقطه اتصال تصویر به زمین از پیکسل‌های واقعی PNG محاسبه می‌شود.
 
 const ISOMETRIC_GRID_SCRIPT = preload(
 	"res://scripts/rendering/IsometricGrid.gd"
@@ -12,6 +12,9 @@ const ISOMETRIC_GRID_SCRIPT = preload(
 const SPRITE_CATALOG_SCRIPT = preload(
 	"res://scripts/buildings/BuildingSpriteCatalog.gd"
 )
+
+const DEFAULT_TILE_WIDTH = 64.0
+const DEFAULT_TILE_HEIGHT = 32.0
 
 var world = null
 var building_id = ""
@@ -29,7 +32,7 @@ var visible_bounds = Rect2()
 var has_visible_bounds = false
 
 var sprite_anchor = Vector2(0.5, 1.0)
-var sprite_scale = 1.0
+var sprite_scale = 1.2
 
 
 func setup(
@@ -55,35 +58,42 @@ func setup(
 		1.0,
 		1.0,
 		1.0,
-		visual_alpha
+		clamp(visual_alpha, 0.0, 1.0)
 	)
 
 	update()
 
 
 func _initialize_systems():
-	if world != null and world.isometric_grid != null:
-		isometric_grid = world.isometric_grid
-	else:
+	if world != null:
+		if "isometric_grid" in world and world.isometric_grid != null:
+			isometric_grid = world.isometric_grid
+
+	if isometric_grid == null:
 		isometric_grid = ISOMETRIC_GRID_SCRIPT.new(
-			64.0,
-			32.0
+			DEFAULT_TILE_WIDTH,
+			DEFAULT_TILE_HEIGHT
 		)
 
-	sprite_catalog = SPRITE_CATALOG_SCRIPT.new()
+	if sprite_catalog == null:
+		sprite_catalog = SPRITE_CATALOG_SCRIPT.new()
 
 
 func _load_sprite_settings():
 	if sprite_catalog == null:
 		return
 
-	sprite_anchor = sprite_catalog.get_anchor(
-		building_id
-	)
+	sprite_anchor = sprite_catalog.get_anchor(building_id)
+	sprite_scale = sprite_catalog.get_scale_multiplier(building_id)
 
-	sprite_scale = sprite_catalog.get_scale_multiplier(
-		building_id
-	)
+	if sprite_scale <= 0.0:
+		sprite_scale = 1.0
+
+	if sprite_anchor.x < 0.0 or sprite_anchor.x > 1.0:
+		sprite_anchor.x = 0.5
+
+	if sprite_anchor.y < 0.0 or sprite_anchor.y > 1.0:
+		sprite_anchor.y = 1.0
 
 
 func _load_building_texture():
@@ -94,28 +104,20 @@ func _load_building_texture():
 	if sprite_catalog == null:
 		return
 
-	var texture_path = sprite_catalog.get_texture_path(
-		building_id
-	)
+	var texture_path = sprite_catalog.get_texture_path(building_id)
 
 	if texture_path == "":
-		push_warning(
-			"Sprite not registered: " + building_id
-		)
+		push_warning("Building sprite is not registered: " + building_id)
 		return
 
 	if not ResourceLoader.exists(texture_path):
-		push_warning(
-			"Building image not found: " + texture_path
-		)
+		push_warning("Building image not found: " + texture_path)
 		return
 
 	building_texture = load(texture_path)
 
 	if building_texture == null:
-		push_warning(
-			"Could not load building image: " + texture_path
-		)
+		push_warning("Could not load building image: " + texture_path)
 
 
 func _calculate_visible_bounds():
@@ -128,6 +130,7 @@ func _calculate_visible_bounds():
 	var image = building_texture.get_data()
 
 	if image == null:
+		push_warning("Could not read image data: " + building_id)
 		return
 
 	var image_width = image.get_width()
@@ -166,54 +169,65 @@ func _calculate_visible_bounds():
 	has_visible_bounds = true
 
 
+func _get_map_origin():
+	if world != null and world.has_method("get_map_origin"):
+		return world.get_map_origin()
+
+	return Vector2(600.0, 130.0)
+
+
+func _get_footprint():
+	if world != null:
+		if "building_footprints" in world:
+			if world.building_footprints != null:
+				return world.building_footprints.get_footprint(
+					building_id
+				)
+
+	return Vector2.ONE
+
+
 func _update_building_position():
-	if world == null:
-		return
-
-	var map_origin = Vector2(600, 130)
-
-	if world.has_method("get_map_origin"):
-		map_origin = world.get_map_origin()
+	if isometric_grid == null:
+		_initialize_systems()
 
 	var footprint = _get_footprint()
+	var map_origin = _get_map_origin()
 
+	# مرکز سطح اشغال‌شده ساختمان؛ بدون جابه‌جایی عمودی دستی.
 	position = isometric_grid.get_footprint_ground_position(
 		grid_pos,
 		footprint,
 		map_origin
 	)
 
+	# ترتیب رسم بر اساس انتهای سطح اشغال‌شده.
 	var depth_grid = grid_pos + Vector2(
 		footprint.x - 1.0,
 		footprint.y - 1.0
 	)
 
-	z_index = int(round(
-		depth_grid.x + depth_grid.y
-	))
+	z_index = int(round(depth_grid.x + depth_grid.y))
 
 
-func _get_footprint():
-	if world != null and world.building_footprints != null:
-		return world.building_footprints.get_footprint(
-			building_id
+func _get_visible_anchor_pixel():
+	if not has_visible_bounds:
+		if building_texture == null:
+			return Vector2.ZERO
+
+		var texture_size = building_texture.get_size()
+
+		return Vector2(
+			texture_size.x * sprite_anchor.x,
+			texture_size.y * sprite_anchor.y
 		)
 
-	return Vector2.ONE
-
-
-func _get_sprite_draw_position():
-	if not has_visible_bounds:
-		return Vector2.ZERO
-
-	var anchor_pixel = Vector2(
+	return Vector2(
 		visible_bounds.position.x
 			+ visible_bounds.size.x * sprite_anchor.x,
 		visible_bounds.position.y
 			+ visible_bounds.size.y * sprite_anchor.y
 	)
-
-	return -anchor_pixel * sprite_scale
 
 
 func _draw():
@@ -226,10 +240,10 @@ func _draw():
 			)
 		return
 
-	if not has_visible_bounds:
-		return
+	var anchor_pixel = _get_visible_anchor_pixel()
 
-	var draw_position = _get_sprite_draw_position()
+	# نقطه اتصال PNG دقیقاً روی مبدأ Node قرار می‌گیرد.
+	var draw_position = -anchor_pixel * sprite_scale
 
 	draw_set_transform(
 		draw_position,
@@ -264,10 +278,7 @@ func _draw_road_warning():
 	):
 		return
 
-	var marker_position = Vector2(
-		0,
-		-48
-	)
+	var marker_position = Vector2(0.0, -48.0)
 
 	draw_circle(
 		marker_position,
@@ -276,17 +287,17 @@ func _draw_road_warning():
 	)
 
 	draw_line(
-		marker_position + Vector2(0, -5),
-		marker_position + Vector2(0, 2),
-		Color(1, 1, 1, 1),
+		marker_position + Vector2(0.0, -5.0),
+		marker_position + Vector2(0.0, 2.0),
+		Color(1.0, 1.0, 1.0, 1.0),
 		2.5,
 		true
 	)
 
 	draw_circle(
-		marker_position + Vector2(0, 6),
+		marker_position + Vector2(0.0, 6.0),
 		1.5,
-		Color(1, 1, 1, 1)
+		Color(1.0, 1.0, 1.0, 1.0)
 	)
 
 
@@ -300,4 +311,12 @@ func refresh_visual():
 	_load_building_texture()
 	_calculate_visible_bounds()
 	_update_building_position()
+
+	modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		clamp(visual_alpha, 0.0, 1.0)
+	)
+
 	update()
