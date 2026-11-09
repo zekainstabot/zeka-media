@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const code = typeof body?.code === "string"
-      ? body.code.replace(/\\s/g, "").toUpperCase()
+      ? body.code.replace(/\s/g, "").toUpperCase()
       : "";
 
     // The bot issues exactly 128-bit random credentials encoded as 32 hex chars.
