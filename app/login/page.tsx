@@ -60,7 +60,7 @@ export default function LoginPage() {
             maxLength={32}
             placeholder="۳۲ کاراکتر کد دریافتی از ربات"
             value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\\s/g, "").toUpperCase())}
+            onChange={(event) => setCode(event.target.value.replace(/\s/g, "").toUpperCase())}
             required
           />
           <button className="auth-action" type="submit" disabled={loading || code.length !== 32}>
