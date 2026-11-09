@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function botConfig() {
-  const base = process.env.ZEKA_BOT_API_URL?.replace(/\\/+$/, "");
+  const base = process.env.ZEKA_BOT_API_URL?.replace(/\/+$/, "");
   const secret = process.env.ZEKA_WEB_API_SECRET;
   if (!base || !secret) throw new Error("BOT_API_NOT_CONFIGURED");
   return { base, secret };
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
     const jobId = new URL(request.url).searchParams.get("id");
-    if (!jobId || !/^\\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+    if (!jobId || !/^\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
 
     const { base, secret } = botConfig();
     const response = await fetch(`${base}/api/web/downloads/${encodeURIComponent(jobId)}?userId=${encodeURIComponent(user.id)}`, {
