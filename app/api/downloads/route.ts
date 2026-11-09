@@ -53,19 +53,39 @@ export async function GET(request: Request) {
       ? `${base}/api/web/downloads/${encodeURIComponent(jobId)}/file?userId=${encodeURIComponent(user.id)}${previewRequested ? "&preview=1" : ""}`
       : `${base}/api/web/downloads/${encodeURIComponent(jobId)}?userId=${encodeURIComponent(user.id)}`;
 
+    const requestHeaders: Record<string, string> = {
+      "X-Zeka-Web-Secret": secret,
+    };
+    const range = request.headers.get("range");
+    if (streamRequested && range) {
+      requestHeaders.Range = range;
+    }
+
     const response = await fetch(endpoint, {
-      headers: { "X-Zeka-Web-Secret": secret },
+      headers: requestHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(streamRequested ? 60000 : 10000),
     });
 
     if (streamRequested && response.ok && response.body) {
-      const headers = new Headers({ "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
-      for (const name of ["content-type", "content-length", "content-disposition"]) {
+      const headers = new Headers({
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      for (const name of [
+        "content-type",
+        "content-length",
+        "content-disposition",
+        "accept-ranges",
+        "content-range",
+      ]) {
         const value = response.headers.get(name);
         if (value) headers.set(name, value);
       }
-      return new Response(response.body, { status: 200, headers });
+      return new Response(response.body, {
+        status: response.status,
+        headers,
+      });
     }
 
     const data = await response.json().catch(() => ({}));
