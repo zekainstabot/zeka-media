@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       });
     }
 
-    if (!/^\\d+$/.test(jobId)) {
+    if (!/^\d+$/.test(jobId)) {
       return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
     }
 
