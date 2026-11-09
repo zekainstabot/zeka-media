@@ -10,7 +10,7 @@ type User = {
   proExpiresAt: string | null;
 };
 
-type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; progressPercent?: number; progressMessage?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
+type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; errorMessage?: string | null; progressPercent?: number; progressMessage?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
 
 const statusLabels: Record<string, string> = {
   WAITING: "در صف پردازش",
@@ -143,8 +143,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              {item.status === "FAILED" && item.errorCode === "DOWNLOAD_TIMEOUT" && (
-                <p className="download-error-message">دانلود زمان‌بر شد و برای جلوگیری از انتظار طولانی متوقف شد. لطفاً کمی بعد دوباره تلاش کنید.</p>
+              {item.status === "FAILED" && (
+                <p className="download-error-message">{item.errorMessage || "دانلود انجام نشد. لطفاً لینک را بررسی و دوباره تلاش کنید."}</p>
               )}
               {item.status === "COMPLETED" && (
                 <div className="download-actions">
