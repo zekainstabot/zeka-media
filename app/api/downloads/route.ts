@@ -41,19 +41,35 @@ export async function GET(request: Request) {
     const user = await getCurrentWebUser();
     if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-    const jobId = new URL(request.url).searchParams.get("id");
-    if (!jobId || !/^\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+    const search = new URL(request.url).searchParams;
+    const jobId = search.get("id");
+    if (!jobId || !/^\\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
 
     const { base, secret } = botConfig();
-    const response = await fetch(`${base}/api/web/downloads/${encodeURIComponent(jobId)}?userId=${encodeURIComponent(user.id)}`, {
+    const fileRequested = search.get("file") === "1";
+    const endpoint = fileRequested
+      ? `${base}/api/web/downloads/${encodeURIComponent(jobId)}/file?userId=${encodeURIComponent(user.id)}`
+      : `${base}/api/web/downloads/${encodeURIComponent(jobId)}?userId=${encodeURIComponent(user.id)}`;
+
+    const response = await fetch(endpoint, {
       headers: { "X-Zeka-Web-Secret": secret },
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(fileRequested ? 60000 : 10000),
     });
+
+    if (fileRequested && response.ok && response.body) {
+      const headers = new Headers({ "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+      for (const name of ["content-type", "content-length", "content-disposition"]) {
+        const value = response.headers.get(name);
+        if (value) headers.set(name, value);
+      }
+      return new Response(response.body, { status: 200, headers });
+    }
+
     const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("Website download status failed:", error);
+    console.error("Website download status/file request failed:", error);
     return NextResponse.json({ error: "DOWNLOAD_SERVICE_UNAVAILABLE" }, { status: 503 });
   }
 }
