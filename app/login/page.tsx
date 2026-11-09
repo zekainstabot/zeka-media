@@ -1,7 +1,6 @@
 "use client";
 
-import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -10,9 +9,10 @@ declare global {
 }
 
 export default function LoginPage() {
+  const widgetContainer = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState("برای ورود، حساب تلگرام خود را انتخاب کنید.");
   const [loading, setLoading] = useState(false);
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace(/^@/, "").trim();
 
   useEffect(() => {
     window.onTelegramAuth = async (telegramUser) => {
@@ -43,10 +43,26 @@ export default function LoginPage() {
       }
     };
 
+    const container = widgetContainer.current;
+    if (container && botUsername) {
+      container.replaceChildren();
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://telegram.org/js/telegram-widget.js?22";
+      script.setAttribute("data-telegram-login", botUsername);
+      script.setAttribute("data-size", "large");
+      script.setAttribute("data-radius", "10");
+      script.setAttribute("data-userpic", "false");
+      script.setAttribute("data-request-access", "write");
+      script.setAttribute("data-onauth", "onTelegramAuth(user)");
+      container.appendChild(script);
+    }
+
     return () => {
+      if (container) container.replaceChildren();
       delete window.onTelegramAuth;
     };
-  }, []);
+  }, [botUsername]);
 
   return (
     <main className="auth-page">
@@ -64,20 +80,9 @@ export default function LoginPage() {
         </p>
 
         {botUsername ? (
-          <div className="telegram-login">
-            <Script
-              src="https://telegram.org/js/telegram-widget.js?22"
-              strategy="afterInteractive"
-              data-telegram-login={botUsername}
-              data-size="large"
-              data-radius="10"
-              data-userpic="false"
-              data-request-access="write"
-              data-onauth="onTelegramAuth(user)"
-            />
-          </div>
+          <div className="telegram-login" ref={widgetContainer} />
         ) : (
-          <p className="auth-status error">تنظیم نام کاربری ربات در سرور انجام نشده است.</p>
+          <p className="auth-status error">نام کاربری ربات در تنظیمات سرور ثبت نشده است.</p>
         )}
 
         <p className={`auth-status ${loading ? "loading" : ""}`}>{status}</p>
