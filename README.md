@@ -1,43 +1,66 @@
 # Zeka Media
 
-Persian RTL web application built with Next.js. The first milestone includes the landing page, Telegram Login Widget authentication, and a user dashboard.
+وب‌اپلیکیشن فارسی و راست‌چین زکا مدیا با Next.js 15 و Node.js 22. سایت به حساب کاربری و PostgreSQL مشترک با ربات زکا متصل است.
 
-## Requirements
+## امکانات فعلی
+
+- صفحه معرفی زکا مدیا
+- ورود با کد اختصاصی و دائمی که کاربر از منوی «اتصال به زکا مدیا» در ربات دریافت می‌کند
+- نمایش اطلاعات حساب و وضعیت اشتراک زکا پرو
+- ثبت درخواست دانلود اینستاگرام از داشبورد
+- نمایش وضعیت و درصد پیشرفت درخواست‌ها
+- پیش‌نمایش و دریافت فایل دانلودشده، تا زمانی که فایل روی سرویس ربات نگهداری می‌شود
+
+## نیازمندی‌ها
 
 - Node.js 22+
-- The PostgreSQL database already used by Zeka Bot
-- The existing Zeka Telegram bot username and token
+- PostgreSQL مشترک با Zeka Bot
+- سرویس عمومی Zeka Bot روی Render
 
-## Environment variables
+## متغیرهای محیطی
 
-Set these on the website hosting service:
+این متغیرها را در سرویس وب‌سایت Render تنظیم کن:
 
-- `DATABASE_URL`: same PostgreSQL database connection string used by Zeka Bot.
-- `DATABASE_SSL=true`: only if required by the database provider.
-- `DATABASE_SSL_REJECT_UNAUTHORIZED=false`: only if the provider requires relaxed certificate verification.
-- `TELEGRAM_BOT_TOKEN`: existing Zeka Bot token. Server-side only; never use a `NEXT_PUBLIC_` prefix.
-- `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`: bot username without @.
-- `ZEKA_BOT_API_URL`: public base URL of the existing Zeka Bot Render web service (for example, `https://your-bot-service.onrender.com`).
-- `ZEKA_WEB_API_SECRET`: same strong shared secret configured as `ZEKA_WEB_API_SECRET` on the bot service. Keep it server-side; never expose it with a `NEXT_PUBLIC_` prefix.
+- `DATABASE_URL`: همان آدرس PostgreSQL ربات زکا.
+- `DATABASE_SSL=true`: در صورت نیاز دیتابیس.
+- `DATABASE_SSL_REJECT_UNAUTHORIZED=false`: فقط اگر ارائه‌دهنده دیتابیس به گواهی با اعتبارسنجی غیرفعال نیاز دارد.
+- `TELEGRAM_BOT_TOKEN`: توکن ربات؛ فقط سمت سرور و بدون پیشوند `NEXT_PUBLIC_`.
+- `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`: نام کاربری ربات بدون @.
+- `ZEKA_BOT_API_URL`: آدرس عمومی سرویس وب ربات، بدون اسلش انتهایی.
+- `ZEKA_WEB_API_SECRET`: راز مشترک بین سایت و ربات؛ باید در هر دو سرویس دقیقاً یکسان باشد و هرگز با پیشوند `NEXT_PUBLIC_` منتشر نشود.
 
-The website download API proxies authenticated requests to the bot service using these two variables. Both services must use the same PostgreSQL database.
+سرویس ربات نیز باید متغیر `ZEKA_WEB_API_SECRET` را داشته باشد. درخواست‌های دانلود سایت از طریق این راز به API داخلی ربات ارسال می‌شوند.
 
-## Telegram domain setup
+## اتصال حساب
 
-In Telegram, open @BotFather, select the existing Zeka bot, run `/setdomain`, and set the exact public website hostname. Telegram Login Widget authentication will not work until this is configured.
+1. کاربر در ربات زکا گزینه «🌐 اتصال به زکا مدیا» را می‌زند.
+2. ربات یک کد ۳۲ کاراکتری تصادفی می‌دهد.
+3. کاربر کد را در صفحه ورود سایت وارد می‌کند.
+4. سایت هش کد را با جدول `web_login_credentials` در دیتابیس مشترک تطبیق می‌دهد و نشست وب می‌سازد.
 
-## Run locally
+کد اتصال مانند رمز ورود حساب است؛ هرکس آن را داشته باشد می‌تواند وارد حساب شود. در صورت گم‌شدن، کاربر باید از ربات «تغییر کد اتصال» را بزند تا کد قبلی باطل شود.
+
+## امنیت نشست
+
+- کد اتصال خام در دیتابیس ذخیره نمی‌شود؛ فقط SHA-256 آن نگهداری می‌شود.
+- توکن نشست مرورگر تصادفی است و فقط هش آن در جدول `sessions` ذخیره می‌شود.
+- کوکی نشست `HttpOnly`، `SameSite=Lax` و در محیط production امن است.
+- اطلاعات حساب و وضعیت Pro از همان رکورد کاربر ربات خوانده می‌شود.
+
+## اجرای محلی
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Account and security model
+## ساخت
 
-- Telegram Login Widget signatures are verified server-side with the existing bot token.
-- The Telegram ID is matched to the existing `users` table. The website does not create a duplicate user.
-- Web sessions use the existing `sessions` table. Only a SHA-256 hash of the browser session token is stored in PostgreSQL.
-- Pro status is read from the same user record as the bot.
+```bash
+npm run build
+npm run start
+```
 
-Phone/password login is not enabled: the current bot user schema has no verified phone or password credential fields. A separate phone-verification and account-linking flow is required before enabling it safely.
+## محدودیت فعلی
+
+در حال حاضر فرم دانلود سایت برای لینک‌های عمومی اینستاگرام طراحی شده است. نمایش درخواست‌های اخیر در داشبورد فعلاً به درخواست‌های همان نشست مرورگر محدود است؛ تاریخچه کامل حساب هنوز در رابط کاربری پیاده‌سازی نشده است.
