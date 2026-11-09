@@ -8,6 +8,7 @@ type User = {
   displayName: string | null;
   isPro: boolean;
   proExpiresAt: string | null;
+  creditBalance: number;
 };
 
 type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; errorMessage?: string | null; progressPercent?: number; progressMessage?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
@@ -80,6 +81,7 @@ export default function DashboardPage() {
           INVALID_URL: "لینک را وارد کن.",
           DUPLICATE_ACTIVE_REQUEST: "این لینک در حال حاضر در صف دانلود است.",
           PLATFORM_DISABLED: "دانلود اینستاگرام موقتاً غیرفعال است.",
+          INSUFFICIENT_CREDIT: "اعتبار کافی برای این دانلود نداری. از بخش اعتبار در ربات زکا، اعتبارت را افزایش بده.",
           UNAUTHORIZED: "نشست شما منقضی شده؛ دوباره وارد شو.",
         };
         throw new Error(errors[data.error] || "ثبت درخواست دانلود انجام نشد.");
@@ -125,6 +127,9 @@ export default function DashboardPage() {
             <div className="account-info">
               <strong>{user.displayName || user.username || "کاربر زکا"}</strong>
               <span>شناسه تلگرام: {user.telegramUserId}</span>
+              {!user.isPro && (
+                <span>اعتبار باقی‌مانده: {Number(user.creditBalance || 0).toLocaleString("fa-IR", { maximumFractionDigits: 2 })}</span>
+              )}
             </div>
             <span className={user.isPro ? "pro-pill" : "free-pill"}>{user.isPro ? "Zeka Pro" : "حساب رایگان"}</span>
             {user.isPro && user.proExpiresAt && <p className="expiry-line">اعتبار اشتراک تا {new Date(user.proExpiresAt).toLocaleDateString("fa-IR")}</p>}
