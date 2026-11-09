@@ -10,12 +10,13 @@ type User = {
   proExpiresAt: string | null;
 };
 
-type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
+type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; progressPercent?: number; progressMessage?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
 
 const statusLabels: Record<string, string> = {
   WAITING: "در صف پردازش",
   PROCESSING: "در حال آماده‌سازی",
   DOWNLOADING: "در حال دانلود",
+  DOWNLOADED: "در حال آماده‌سازی فایل",
   SENDING: "در حال ارسال",
   COMPLETED: "دانلود آماده است",
   FAILED: "دانلود ناموفق بود",
@@ -89,7 +90,7 @@ export default function DashboardPage() {
         } catch { return null; }
       }));
       setDownloads((current) => current.map((item) => updates.find((update) => update?.id === item.id) || item));
-    }, 5000);
+    }, 2500);
     return () => clearInterval(timer);
   }, [downloads]);
 
@@ -131,6 +132,20 @@ export default function DashboardPage() {
             <div key={item.id} className="download-history-row">
               <span>درخواست #{item.id}</span>
               <strong>{statusLabels[item.status] || item.status}</strong>
+              {item.status === "DOWNLOADING" && (
+                <div className="download-progress" role="status" aria-label="درصد پیشرفت دانلود">
+                  <div className="download-progress-heading">
+                    <span>{item.progressMessage || "در حال دریافت فایل از اینستاگرام"}</span>
+                    <strong>{Math.max(0, Math.min(99, item.progressPercent || 0))}٪</strong>
+                  </div>
+                  <div className="download-progress-track">
+                    <span style={{ width: `${Math.max(0, Math.min(99, item.progressPercent || 0))}%` }} />
+                  </div>
+                </div>
+              )}
+              {item.status === "FAILED" && item.errorCode === "DOWNLOAD_TIMEOUT" && (
+                <p className="download-error-message">دانلود زمان‌بر شد و برای جلوگیری از انتظار طولانی متوقف شد. لطفاً کمی بعد دوباره تلاش کنید.</p>
+              )}
               {item.status === "COMPLETED" && (
                 <div className="download-actions">
                   {item.previewAvailable && item.mediaContentType === "VIDEO" && (
