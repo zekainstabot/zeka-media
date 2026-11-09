@@ -5,13 +5,17 @@ declare global {
   var zekaMediaPool: Pool | undefined;
 }
 
-function createPool() {
+function getPool(): Pool {
+  if (global.zekaMediaPool) {
+    return global.zekaMediaPool;
+  }
+
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     max: 5,
     idleTimeoutMillis: 30_000,
@@ -20,10 +24,20 @@ function createPool() {
       ? { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false" }
       : undefined,
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    global.zekaMediaPool = pool;
+  }
+
+  return pool;
 }
 
-export const db = global.zekaMediaPool ?? createPool();
-
-if (process.env.NODE_ENV !== "production") {
-  global.zekaMediaPool = db;
-}
+// Create the connection lazily so Next.js can build without production secrets.
+// DATABASE_URL is still required when an API route actually accesses the database.
+export const db = new Proxy({} as Pool, {
+  get(_target, property) {
+    const pool = getPool();
+    const value = Reflect.get(pool, property, pool);
+    return typeof value === "function" ? value.bind(pool) : value;
+  },
+});
