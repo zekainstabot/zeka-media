@@ -43,9 +43,28 @@ export async function GET(request: Request) {
 
     const search = new URL(request.url).searchParams;
     const jobId = search.get("id");
-    if (!jobId || !/^\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
-
     const { base, secret } = botConfig();
+
+    if (!jobId) {
+      const response = await fetch(
+        base + "/api/web/downloads?userId=" + encodeURIComponent(user.id),
+        {
+          headers: { "X-Zeka-Web-Secret": secret },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      return NextResponse.json(data, {
+        status: response.status,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    if (!/^\\d+$/.test(jobId)) {
+      return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+    }
+
     const fileRequested = search.get("file") === "1";
     const previewRequested = search.get("preview") === "1";
     const streamRequested = fileRequested || previewRequested;
