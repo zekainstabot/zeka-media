@@ -10,7 +10,7 @@ type User = {
   proExpiresAt: string | null;
 };
 
-type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null };
+type Download = { id: string; status: string; originalUrl?: string; errorCode?: string | null; mediaContentType?: string | null; previewAvailable?: boolean };
 
 const statusLabels: Record<string, string> = {
   WAITING: "در صف پردازش",
@@ -132,9 +132,22 @@ export default function DashboardPage() {
               <span>درخواست #{item.id}</span>
               <strong>{statusLabels[item.status] || item.status}</strong>
               {item.status === "COMPLETED" && (
-                <a className="download-file-link" href={`/api/downloads?id=${encodeURIComponent(item.id)}&file=1`}>
-                  دریافت فایل
-                </a>
+                <div className="download-actions">
+                  {item.previewAvailable && item.mediaContentType === "VIDEO" && (
+                    <video className="download-preview-video" controls preload="metadata" playsInline src={`/api/downloads?id=${encodeURIComponent(item.id)}&preview=1`}>
+                      مرورگر شما از پخش ویدیو پشتیبانی نمی‌کند.
+                    </video>
+                  )}
+                  {item.previewAvailable && item.mediaContentType === "PHOTO" && (
+                    <a className="download-preview-image-link" href={`/api/downloads?id=${encodeURIComponent(item.id)}&preview=1`} target="_blank" rel="noreferrer">
+                      <img className="download-preview-image" src={`/api/downloads?id=${encodeURIComponent(item.id)}&preview=1`} alt="پیش‌نمایش تصویر دانلودشده" loading="lazy" />
+                    </a>
+                  )}
+                  {!item.previewAvailable && <span className="preview-unavailable">پیش‌نمایش در دسترس نیست یا مهلت نگهداری فایل تمام شده است.</span>}
+                  <a className="download-file-link" href={`/api/downloads?id=${encodeURIComponent(item.id)}&file=1`}>
+                    دریافت فایل
+                  </a>
+                </div>
               )}
             </div>
           ))}
