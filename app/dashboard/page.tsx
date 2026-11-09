@@ -17,7 +17,7 @@ const statusLabels: Record<string, string> = {
   PROCESSING: "در حال آماده‌سازی",
   DOWNLOADING: "در حال دانلود",
   SENDING: "در حال ارسال",
-  COMPLETED: "دانلود کامل شد؛ فایل به ربات تلگرام ارسال شده",
+  COMPLETED: "دانلود آماده است",
   FAILED: "دانلود ناموفق بود",
   CANCELLED: "لغو شده",
 };
@@ -131,6 +131,11 @@ export default function DashboardPage() {
             <div key={item.id} className="download-history-row">
               <span>درخواست #{item.id}</span>
               <strong>{statusLabels[item.status] || item.status}</strong>
+              {item.status === "COMPLETED" && (
+                <a className="download-file-link" href={`/api/downloads?id=${encodeURIComponent(item.id)}&file=1`}>
+                  دریافت فایل
+                </a>
+              )}
             </div>
           ))}
         </section>
