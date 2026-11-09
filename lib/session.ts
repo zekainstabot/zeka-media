@@ -67,6 +67,13 @@ export async function getCurrentWebUser() {
         u.language,
         u.is_pro,
         u.pro_expires_at,
+        (
+          SELECT COALESCE(SUM(ca.remaining_amount), 0)
+          FROM credit_accounts ca
+          WHERE ca.user_id = u.id
+            AND ca.remaining_amount > 0
+            AND (ca.expires_at IS NULL OR ca.expires_at > NOW())
+        ) AS credit_balance,
         s.id AS session_row_id
       FROM sessions s
       INNER JOIN users u ON u.id = s.user_id
@@ -96,6 +103,7 @@ export async function getCurrentWebUser() {
     isPro: Boolean(user.is_pro) &&
       (!user.pro_expires_at || new Date(user.pro_expires_at).getTime() > Date.now()),
     proExpiresAt: user.pro_expires_at,
+    creditBalance: Number(user.credit_balance || 0),
   };
 }
 
