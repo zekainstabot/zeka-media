@@ -37,7 +37,23 @@ export default function DashboardPage() {
         if (!response.ok) { window.location.href = "/login"; return null; }
         return response.json();
       })
-      .then((data) => { if (data?.user) { setUser(data.user); setStatus(""); } })
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user);
+          setStatus("");
+          fetch("/api/downloads", { cache: "no-store" })
+            .then(async (response) => {
+              if (!response.ok) return null;
+              return response.json();
+            })
+            .then((history) => {
+              if (Array.isArray(history?.downloads)) {
+                setDownloads(history.downloads);
+              }
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => setStatus("دریافت اطلاعات حساب ناموفق بود."));
   }, []);
 
@@ -128,7 +144,7 @@ export default function DashboardPage() {
 
         <section className="dashboard-placeholder">
           <h2>درخواست‌های اخیر</h2>
-          {downloads.length === 0 ? <p>هنوز درخواستی در این نشست ثبت نشده است.</p> : downloads.map((item) => (
+          {downloads.length === 0 ? <p>هنوز سابقه دانلودی برای این حساب ثبت نشده است.</p> : downloads.map((item) => (
             <div key={item.id} className="download-history-row">
               <span>درخواست #{item.id}</span>
               <strong>{statusLabels[item.status] || item.status}</strong>
