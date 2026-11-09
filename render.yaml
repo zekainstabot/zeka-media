@@ -2,7 +2,7 @@ services:
   - type: web
     name: zeka-media
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm run start
     healthCheckPath: /
