@@ -25,9 +25,9 @@ function getPool(): Pool {
       : undefined,
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    global.zekaMediaPool = pool;
-  }
+  // Reuse one pool in every environment. Creating a new pool per query
+  // leaks PostgreSQL connections in production.
+  global.zekaMediaPool = pool;
 
   return pool;
 }
