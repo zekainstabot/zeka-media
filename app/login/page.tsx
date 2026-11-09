@@ -1,68 +1,62 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: Record<string, unknown>) => void;
-  }
-}
+import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
-  const widgetContainer = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState("برای ورود، حساب تلگرام خود را انتخاب کنید.");
+  const [token, setToken] = useState("");
+  const [botUrl, setBotUrl] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"start" | "code">("start");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace(/^@/, "").trim();
 
-  useEffect(() => {
-    window.onTelegramAuth = async (telegramUser) => {
-      setLoading(true);
-      setStatus("در حال بررسی حساب تلگرام...");
-      try {
-        const response = await fetch("/api/auth/telegram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(telegramUser),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          if (data.error === "BOT_ACCOUNT_REQUIRED") {
-            setStatus("ابتدا ربات زکا را در تلگرام Start کنید و سپس دوباره وارد شوید.");
-          } else {
-            setStatus("ورود تأیید نشد. دوباره تلاش کنید.");
-          }
-          return;
-        }
-
-        window.location.href = "/dashboard";
-      } catch {
-        setStatus("ارتباط با سرور برقرار نشد.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const container = widgetContainer.current;
-    if (container && botUsername) {
-      container.replaceChildren();
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = "https://telegram.org/js/telegram-widget.js?22";
-      script.setAttribute("data-telegram-login", botUsername);
-      script.setAttribute("data-size", "large");
-      script.setAttribute("data-radius", "10");
-      script.setAttribute("data-userpic", "false");
-      script.setAttribute("data-request-access", "write");
-      script.setAttribute("data-onauth", "onTelegramAuth(user)");
-      container.appendChild(script);
+  async function requestCode() {
+    setLoading(true);
+    setStatus("در حال ساخت لینک امن ورود...");
+    try {
+      const response = await fetch("/api/auth/code/start", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error("ساخت لینک ورود انجام نشد. دوباره تلاش کن.");
+      setToken(data.token);
+      setBotUrl(data.botUrl);
+      setStep("code");
+      setStatus("۱) ربات زکا را باز کن و Start را بزن. ۲) کد ارسال‌شده را اینجا وارد کن.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "خطا در ارتباط با سرور.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    return () => {
-      if (container) container.replaceChildren();
-      delete window.onTelegramAuth;
-    };
-  }, [botUsername]);
+  async function verifyCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setStatus("در حال بررسی کد...");
+    try {
+      const response = await fetch("/api/auth/code/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, code }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        const messages: Record<string, string> = {
+          CODE_NOT_SENT: "هنوز کدی دریافت نشده؛ ابتدا لینک ربات را باز کن و Start را بزن.",
+          INVALID_CODE: "کد اشتباه است. دوباره بررسی کن.",
+          CHALLENGE_EXPIRED: "مهلت کد تمام شده؛ کد جدید بگیر.",
+          TOO_MANY_ATTEMPTS: "تعداد تلاش‌ها بیش از حد مجاز است؛ کد جدید بگیر.",
+        };
+        throw new Error(messages[data.error] || "ورود تأیید نشد.");
+      }
+
+      window.location.href = "/dashboard";
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "خطا در ارتباط با سرور.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <main className="auth-page">
@@ -72,22 +66,56 @@ export default function LoginPage() {
           <span>zeka<span className="brand-light">media</span></span>
         </a>
         <div className="auth-symbol">✦</div>
-        <p className="auth-kicker">ورود امن و یکپارچه</p>
-        <h1 className="auth-title">به زکا مدیا خوش آمدی</h1>
+        <p className="auth-kicker">ورود امن بدون شماره تلفن</p>
+        <h1 className="auth-title">ورود به زکا مدیا</h1>
         <p className="auth-description">
-          با همان حساب تلگرامی که در ربات زکا استفاده می‌کنی وارد شو.
-          اطلاعات حساب و وضعیت اشتراک از حساب اصلی خوانده می‌شود.
+          برای ورود، ربات رسمی زکا یک کد یک‌بارمصرف برایت می‌فرستد.
+          ما شماره تلفن، رمز عبور یا کد ورود تلگرام را نمی‌خواهیم.
         </p>
 
-        {botUsername ? (
-          <div className="telegram-login" ref={widgetContainer} />
+        {step === "start" ? (
+          <button className="auth-action" type="button" onClick={requestCode} disabled={loading}>
+            {loading ? "لطفاً صبر کن..." : "دریافت کد از ربات زکا"}
+          </button>
         ) : (
-          <p className="auth-status error">نام کاربری ربات در تنظیمات سرور ثبت نشده است.</p>
+          <>
+            <a className="telegram-start-link" href={botUrl} target="_blank" rel="noreferrer">
+              باز کردن ربات زکا و دریافت کد
+            </a>
+            <form className="login-code-form" onSubmit={verifyCode}>
+              <label htmlFor="login-code">کد ۶ رقمی ارسال‌شده در ربات</label>
+              <input
+                id="login-code"
+                className="login-code-input"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                placeholder="مثلاً ۱۲۳۴۵۶"
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                required
+              />
+              <button className="auth-action" type="submit" disabled={loading || code.length !== 6}>
+                {loading ? "در حال بررسی..." : "تأیید کد و ورود"}
+              </button>
+            </form>
+            <button
+              className="auth-resend"
+              type="button"
+              disabled={loading}
+              onClick={() => { setStep("start"); setToken(""); setBotUrl(""); setCode(""); setStatus(""); }}
+            >
+              دریافت کد جدید
+            </button>
+          </>
         )}
 
-        <p className={`auth-status ${loading ? "loading" : ""}`}>{status}</p>
+        <p className="auth-status">{status}</p>
         <a className="back-link" href="/">بازگشت به صفحه اصلی</a>
-        <div className="auth-security">اتصال رمزنگاری‌شده · بدون دریافت رمز عبور تلگرام</div>
+        <div className="auth-security">
+          کد فقط برای همین ورود است · اعتبار ۱۰ دقیقه · هرگز کد را در اختیار دیگران نگذار
+        </div>
       </section>
     </main>
   );
