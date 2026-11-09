@@ -133,3 +133,22 @@ footer { display: flex; justify-content: space-between; padding: 22px 0 30px; bo
   .dashboard-content { padding: 45px 18px; }
   .dashboard-content > h1 { font-size: 28px; }
 }
+
+/* Passwordless Telegram bot code login */
+.auth-action, .telegram-start-link {
+  width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 11px; padding: 12px 18px; margin: 12px 0;
+  background: linear-gradient(110deg,#c4b5fd,#8b5cf6); color: #171023;
+  font: inherit; font-size: 13px; font-weight: 900; cursor: pointer;
+}
+.auth-action:disabled { opacity: .55; cursor: not-allowed; }
+.telegram-start-link { background: #211a32; color: #d9caff; border: 1px solid #7255a7; }
+.login-code-form { display: grid; gap: 10px; margin-top: 18px; text-align: right; }
+.login-code-form label { color: #c9c1d9; font-size: 11px; }
+.login-code-input {
+  width: 100%; height: 54px; border: 1px solid #514367; border-radius: 11px;
+  outline: none; background: #0d0b15; color: #fff; text-align: center;
+  font: 700 24px/1 Tahoma, sans-serif; letter-spacing: 9px; direction: ltr;
+}
+.login-code-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px #8b5cf622; }
+.auth-resend { border: 0; background: transparent; color: #b69aff; font: inherit; font-size: 11px; cursor: pointer; margin-top: 8px; }
