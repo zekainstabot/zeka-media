@@ -47,17 +47,19 @@ export async function GET(request: Request) {
 
     const { base, secret } = botConfig();
     const fileRequested = search.get("file") === "1";
-    const endpoint = fileRequested
-      ? `${base}/api/web/downloads/${encodeURIComponent(jobId)}/file?userId=${encodeURIComponent(user.id)}`
+    const previewRequested = search.get("preview") === "1";
+    const streamRequested = fileRequested || previewRequested;
+    const endpoint = streamRequested
+      ? `${base}/api/web/downloads/${encodeURIComponent(jobId)}/file?userId=${encodeURIComponent(user.id)}${previewRequested ? "&preview=1" : ""}`
       : `${base}/api/web/downloads/${encodeURIComponent(jobId)}?userId=${encodeURIComponent(user.id)}`;
 
     const response = await fetch(endpoint, {
       headers: { "X-Zeka-Web-Secret": secret },
       cache: "no-store",
-      signal: AbortSignal.timeout(fileRequested ? 60000 : 10000),
+      signal: AbortSignal.timeout(streamRequested ? 60000 : 10000),
     });
 
-    if (fileRequested && response.ok && response.body) {
+    if (streamRequested && response.ok && response.body) {
       const headers = new Headers({ "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
       for (const name of ["content-type", "content-length", "content-disposition"]) {
         const value = response.headers.get(name);
