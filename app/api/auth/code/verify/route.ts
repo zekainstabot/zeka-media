@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "crypto";
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createUserSession } from "@/lib/session";
@@ -9,14 +9,15 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const code = typeof body?.code === "string"
-      ? body.code.replace(/\s/g, "").toUpperCase()
+      ? body.code.replace(/\\s/g, "").toUpperCase()
       : "";
 
-    if (!/^[A-Z0-9_-]{20,32}$/.test(code)) {
+    // The bot issues exactly 128-bit random credentials encoded as 32 hex chars.
+    if (!/^[A-F0-9]{32}$/.test(code)) {
       return NextResponse.json({ error: "INVALID_CODE_FORMAT" }, { status: 400 });
     }
 
-    const codeHash = createHash("sha256").update(code).digest("hex");
+    const codeHash = createHash("sha256").update(code, "utf8").digest("hex");
     const result = await db.query(
       `
         SELECT u.id
