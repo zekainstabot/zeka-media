@@ -20,7 +20,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error === "INVALID_CODE"
+        throw new Error(data.error === "INVALID_CODE" || data.error === "INVALID_CODE_FORMAT"
           ? "کد اتصال اشتباه یا باطل شده است. کد را از ربات بررسی کن."
           : "ورود انجام نشد. دوباره تلاش کن.");
       }
@@ -44,8 +44,8 @@ export default function LoginPage() {
         <p className="auth-kicker">ورود امن بدون شماره تلفن</p>
         <h1 className="auth-title">ورود به زکا مدیا</h1>
         <p className="auth-description">
-          در ربات زکا وارد بخش «🌐 اتصال به زکا مدیا» شو و کد اختصاصی خودت را دریافت کن.
-          همان کد برای ورودهای بعدی هم معتبر می‌ماند.
+          در ربات زکا وارد بخش «🌐 اتصال به زکا مدیا» شو و کد اختصاصی ۳۲ کاراکتری خودت را دریافت کن.
+          این کد ثابت است و برای ورودهای بعدی هم استفاده می‌شود.
         </p>
 
         <form className="login-code-form" onSubmit={verifyCode}>
@@ -58,12 +58,12 @@ export default function LoginPage() {
             autoComplete="off"
             spellCheck={false}
             maxLength={32}
-            placeholder="کد دریافتی از ربات"
+            placeholder="۳۲ کاراکتر کد دریافتی از ربات"
             value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\s/g, "").toUpperCase())}
+            onChange={(event) => setCode(event.target.value.replace(/\\s/g, "").toUpperCase())}
             required
           />
-          <button className="auth-action" type="submit" disabled={loading || code.length < 20}>
+          <button className="auth-action" type="submit" disabled={loading || code.length !== 32}>
             {loading ? "در حال بررسی..." : "ورود به زکا مدیا"}
           </button>
         </form>
