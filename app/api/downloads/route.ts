@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
     const search = new URL(request.url).searchParams;
     const jobId = search.get("id");
-    if (!jobId || !/^\\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+    if (!jobId || !/^\d+$/.test(jobId)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
 
     const { base, secret } = botConfig();
     const fileRequested = search.get("file") === "1";
