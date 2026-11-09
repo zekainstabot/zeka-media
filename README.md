@@ -17,6 +17,10 @@ Set these on the website hosting service:
 - `DATABASE_SSL_REJECT_UNAUTHORIZED=false`: only if the provider requires relaxed certificate verification.
 - `TELEGRAM_BOT_TOKEN`: existing Zeka Bot token. Server-side only; never use a `NEXT_PUBLIC_` prefix.
 - `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`: bot username without @.
+- `ZEKA_BOT_API_URL`: public base URL of the existing Zeka Bot Render web service (for example, `https://your-bot-service.onrender.com`).
+- `ZEKA_WEB_API_SECRET`: same strong shared secret configured as `ZEKA_WEB_API_SECRET` on the bot service. Keep it server-side; never expose it with a `NEXT_PUBLIC_` prefix.
+
+The website download API proxies authenticated requests to the bot service using these two variables. Both services must use the same PostgreSQL database.
 
 ## Telegram domain setup
 
